@@ -1,17 +1,25 @@
 require 'drb/drb'
 require 'irb'
-require 'irb/input-method'
 
-STDOUT.sync = true
-
-IRB.setup(__FILE__)
+module IRB
+  class Context
+    alias org_inspect_mode inspect_mode=
+    def inspect_mode=(opt)
+      if opt == true
+        @inspect_method = @workspace.inspectors[opt]
+        @inspect_method.init
+        @inspect_mode = opt
+      else 
+        org_inspect_mode(opt)
+      end
+    end
+  end
+end
 
 DRb.start_service
-im = IRB::ReadlineInputMethod.new
-im.extend(DRbUndumped)
-om = IRB::StdioOutputMethod.new
-om.extend(DRbUndumped)
 
+IRB.setup(eval("__FILE__"), argv: [])
 ro = DRbObject.new_with_uri('druby://localhost:54345')
-th = ro.start(im, om, $stdout)
-th.join
+workspace = ro.workspace
+# STDOUT.print(workspace.code_around_binding)
+IRB::Irb.new(workspace).run(IRB.conf)
